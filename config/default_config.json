@@ -1,0 +1,145 @@
+{
+  "random_seed": 42,
+  "time_step_minutes": 30,
+  "data": {
+    "mode": "sample",
+    "sample_carbon_csv": "data/sample/sample_carbon_intensity_synthetic.csv",
+    "sample_workload_csv": "data/sample/sample_workload_synthetic.csv",
+    "real_carbon_csv": "data/real/carbon_intensity_gb.csv",
+    "real_workload_csv": "data/real/google_trace_extract.csv",
+    "simulation_days": 7,
+    "drain_steps": 96
+  },
+  "forecaster": {
+    "max_horizon_steps": 48,
+    "max_iter": 100,
+    "learning_rate": 0.05,
+    "model_path": "models/ci_forecaster.joblib"
+  },
+  "sites": [
+    {
+      "site_id": "edge-site-A",
+      "ci_scale": 1.0,
+      "ci_shift_steps": 0
+    },
+    {
+      "site_id": "edge-site-B",
+      "ci_scale": 0.9,
+      "ci_shift_steps": -12
+    },
+    {
+      "site_id": "cloud-region-1",
+      "ci_scale": 0.8,
+      "ci_shift_steps": -24
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "edge-A-1",
+      "site_id": "edge-site-A",
+      "tier": "edge",
+      "cpu_cores": 8,
+      "mem_gb": 16,
+      "idle_power_w": 40,
+      "max_power_w": 120,
+      "pue": 1.5,
+      "latency_ms": 8
+    },
+    {
+      "node_id": "edge-A-2",
+      "site_id": "edge-site-A",
+      "tier": "edge",
+      "cpu_cores": 8,
+      "mem_gb": 16,
+      "idle_power_w": 40,
+      "max_power_w": 120,
+      "pue": 1.5,
+      "latency_ms": 8
+    },
+    {
+      "node_id": "edge-B-1",
+      "site_id": "edge-site-B",
+      "tier": "edge",
+      "cpu_cores": 16,
+      "mem_gb": 32,
+      "idle_power_w": 60,
+      "max_power_w": 180,
+      "pue": 1.4,
+      "latency_ms": 12
+    },
+    {
+      "node_id": "edge-B-2",
+      "site_id": "edge-site-B",
+      "tier": "edge",
+      "cpu_cores": 16,
+      "mem_gb": 32,
+      "idle_power_w": 60,
+      "max_power_w": 180,
+      "pue": 1.4,
+      "latency_ms": 12
+    },
+    {
+      "node_id": "cloud-1",
+      "site_id": "cloud-region-1",
+      "tier": "cloud",
+      "cpu_cores": 64,
+      "mem_gb": 256,
+      "idle_power_w": 150,
+      "max_power_w": 450,
+      "pue": 1.15,
+      "latency_ms": 60
+    },
+    {
+      "node_id": "cloud-2",
+      "site_id": "cloud-region-1",
+      "tier": "cloud",
+      "cpu_cores": 64,
+      "mem_gb": 256,
+      "idle_power_w": 150,
+      "max_power_w": 450,
+      "pue": 1.15,
+      "latency_ms": 60
+    }
+  ],
+  "synthetic_workload": {
+    "jobs_per_step": 3.0,
+    "latency_sensitive_fraction": 0.4,
+    "latency_sensitive_req_ms": [
+      15,
+      25,
+      50
+    ],
+    "latency_tolerant_req_ms": 200,
+    "slack_choices_steps": [
+      0,
+      12,
+      24,
+      48
+    ],
+    "max_duration_steps": 24
+  },
+  "google_trace_mapping": {
+    "cpu_scale_cores": 32,
+    "mem_scale_gb": 256,
+    "max_cpu_per_job": 8,
+    "max_mem_per_job_gb": 32,
+    "max_jobs": 1500
+  },
+  "migration": {
+    "bandwidth_mbps": 100,
+    "fixed_downtime_s": 30,
+    "transfer_kwh_per_gb": 0.03,
+    "max_migrations_per_job": 1,
+    "min_remaining_steps": 4,
+    "benefit_margin": 0.1
+  },
+  "carbon_aware_scheduler": {
+    "defer_margin": 0.05,
+    "enable_deferral": true,
+    "enable_migration": true,
+    "max_deferral_steps": 12
+  },
+  "evaluation": {
+    "robustness_seeds": 5
+  }
+}

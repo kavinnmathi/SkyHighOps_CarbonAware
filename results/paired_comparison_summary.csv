@@ -1,0 +1,4 @@
+scheduler,n_seeds,job_reduction_mean_pct,job_reduction_std_pct,fleet_reduction_mean_pct,fleet_reduction_std_pct,mean_wait_min,deadline_miss_rate,completion_rate,seeds_better
+baseline_fcfs_first_fit,5,0.0,0.0,0.0,0.0,0.5319453097851353,0.012223821934905033,1.0,0
+carbon_aware,5,49.096305388445025,1.2580520716880295,11.152655485138208,0.5846261032782502,78.02105355245348,0.001983729210954688,1.0,5
+energy_aware_ablation,5,47.45575349572917,1.1984892956544508,10.786234645720134,0.5700238210698614,0.0,0.0,1.0,5

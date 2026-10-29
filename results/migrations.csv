@@ -1,0 +1,2 @@
+scheduler,step,job_id,from_node,to_node,downtime_s,transfer_energy_kwh,transfer_emissions_g
+carbon_aware,274,775,edge-A-1,edge-B-2,52.368,0.00819140625,0.626642578125

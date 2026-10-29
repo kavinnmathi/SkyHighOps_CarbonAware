@@ -1,0 +1,14 @@
+{
+  "out_path": "E:\\Kavinn\\vit\\sem 3 y2\\cloud infrastructure\\project\\SkyHighOps_CarbonAware\\data\\real\\carbon_intensity_gb.csv",
+  "source": "neso",
+  "data_origin": "REAL_OBSERVATION",
+  "is_real": true,
+  "rows": 2880,
+  "start_utc": "2026-08-30 03:30:00+00:00",
+  "end_utc": "2026-10-29 03:00:00+00:00",
+  "retrieved_utc": "2026-10-29T04:28:43+00:00",
+  "data_age_hours": 1.5,
+  "url": "https://api.neso.energy/dataset/88313ae5-94e4-4ddc-a790-593554d8c6b9/resource/f93d1835-75bc-43e5-84ad-12472b180a98/download/df_fuel_ckan.csv",
+  "sha256": "649df89f7dcee63bb76a82cc15eae8ddd37fbb263f45d57a8d4c9c52b370e232",
+  "notes": []
+}

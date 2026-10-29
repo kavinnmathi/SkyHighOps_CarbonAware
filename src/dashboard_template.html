@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SkyHighOps - Carbon-Aware Edge Scheduling</title>
+<style>
+:root{--bg:#eef2f1;--panel:#fff;--ink:#14232b;--mute:#5b6b73;--line:#d3dcda;--base:#7b8790;--ca:#1f8a5b;--en:#d9922b;--warn:#a23b2a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a1f;--panel:#16252c;--ink:#e6eeee;--mute:#9bb0b6;--line:#2a3d45;--base:#8f9ba3;--ca:#3fc78a;--en:#e8a94a;--warn:#e07a63}}
+:root[data-theme="dark"]{--bg:#0f1a1f;--panel:#16252c;--ink:#e6eeee;--mute:#9bb0b6;--line:#2a3d45;--base:#8f9ba3;--ca:#3fc78a;--en:#e8a94a;--warn:#e07a63}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:20px 16px 48px}
+h1,h2,.big{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;font-weight:600;letter-spacing:-.01em}
+h1{font-size:clamp(26px,5vw,40px);line-height:1.15;margin:8px 0 6px;max-width:22em}
+h2{font-size:20px;margin:0 0 4px}
+p.sub{color:var(--mute);margin:0 0 14px;max-width:62ch}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:13px;border:1px solid var(--warn);color:var(--warn)}
+.badge.real{border-color:var(--ca);color:var(--ca)}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-top:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
+.kpi{border-left:3px solid var(--ca);padding:2px 0 2px 12px}.kpi .big{font-size:30px;line-height:1.1}.kpi span{color:var(--mute);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th:first-child,td:first-child{text-align:left}
+.scroll{overflow-x:auto}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+svg{width:100%;height:auto;display:block}svg text{fill:var(--mute);font:11px system-ui,sans-serif}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin-top:6px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.tabs button{font:inherit;border:1px solid var(--line);background:transparent;color:var(--ink);padding:5px 12px;border-radius:99px;cursor:pointer;margin-right:6px}
+.tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg)}button:focus-visible{outline:2px solid var(--ca);outline-offset:2px}
+.key td{text-align:left;white-space:normal;vertical-align:top}
+</style></head><body><main>
+<div id="origin"></div>
+<h1 id="headline"></h1>
+<p class="sub" id="lede"></p>
+<div class="kpis" id="kpis"></div>
+
+<section><h2>Emissions by scheduler</h2><p class="sub">Job emissions are attributed to jobs and include migration overhead. Fleet emissions include idle power of every node, so relative gaps are smaller.</p>
+<div class="grid2"><div><div id="barJob"></div></div><div><div id="barFleet"></div></div></div><div class="legend" id="leg1"></div></section>
+
+<section><h2>Emissions building up over the simulation</h2><p class="sub">Cumulative whole-fleet kg CO2 per half-hour step.</p><div id="cum"></div><div class="legend" id="leg2"></div></section>
+
+<section><h2>Where the work ran</h2><p class="sub">Simulated job energy (kWh) per node. The baseline fills edge nodes first; the carbon-aware scheduler moves tolerant work to the lowest-carbon option.</p><div id="place"></div><div class="legend" id="leg3"></div></section>
+
+<section><h2>Carbon-intensity forecaster</h2><p class="sub">Mean absolute error (gCO2/kWh) on the held-out period. Lower is better.</p><div id="fc"></div><div class="legend" id="leg4"></div><p class="sub" id="fcnote" style="margin-top:8px"></p></section>
+
+<section><h2>Scheduler comparison</h2><div class="scroll"><table id="tbl"></table></div></section>
+
+<section id="robsec"><h2>Robustness across workloads</h2><p class="sub">Job-emissions reduction on freshly generated synthetic workloads.</p><div id="rob"></div></section>
+
+<section><h2>What is real, predicted and simulated</h2><div class="scroll"><table class="key" id="key"></table></div></section>
+</main>
+<script>
+const D=__DATA__;
+const C={baseline_fcfs_first_fit:"var(--base)",carbon_aware:"var(--ca)",energy_aware_ablation:"var(--en)"};
+const N={baseline_fcfs_first_fit:"Baseline (FCFS first-fit)",carbon_aware:"Carbon-aware",energy_aware_ablation:"Energy-only ablation"};
+const f=(x,d=1)=>Number(x).toLocaleString(undefined,{maximumFractionDigits:d});
+const $=id=>document.getElementById(id);
+const row=s=>D.comparison.find(r=>r.scheduler===s);
+const ca=row("carbon_aware"),bs=row("baseline_fcfs_first_fit"),en=row("energy_aware_ablation");
+const synth=/SYNTHETIC/.test(D.meta.carbon_origin);
+$("origin").innerHTML=`<span class="badge ${synth?"":"real"}">${synth?"Synthetic sample data - not real measurements":"Real carbon data"} - mode: ${D.meta.mode}</span>`;
+$("headline").textContent=`The carbon-aware scheduler cut job emissions by ${f(ca.job_emissions_reduction_pct)}% in this simulation`;
+$("lede").textContent=`Compared with a conventional first-fit scheduler over ${D.meta.days} simulated days. `+(en?`About ${f(en.job_emissions_reduction_pct)}% of that comes from efficient hardware alone; carbon-awareness adds ${f((en.job_emissions_g-ca.job_emissions_g)/en.job_emissions_g*100)}% on top. `:"")+(synth?"Synthetic data shows the pipeline works, not real-world savings.":"");
+const kp=[[f(ca.job_emissions_reduction_pct)+"%","job emissions vs baseline"],[f(ca.fleet_emissions_reduction_pct)+"%","fleet emissions vs baseline"],[f(ca.deadline_miss_rate*100,2)+"%","deadline misses (baseline "+f(bs.deadline_miss_rate*100,2)+"%)"],[f(ca.mean_wait_min,0)+" min","mean wait (baseline "+f(bs.mean_wait_min,0)+" min)"],[ca.migrations,"simulated migrations"]];
+$("kpis").innerHTML=kp.map(k=>`<div class="kpi"><div class="big">${k[0]}</div><span>${k[1]}</span></div>`).join("");
+const legend=(id,names)=>$(id).innerHTML=names.map(n=>`<span><i style="background:${C[n]}"></i>${N[n]}</span>`).join("");
+const sch=D.comparison.map(r=>r.scheduler);
+["leg1","leg2","leg3"].forEach(i=>legend(i,sch));
+function bars(el,labels,series,unit){const W=600,H=250,m={l:52,b:36,t:10,r:8};const max=Math.max(...series.flatMap(s=>s.vals))*1.1||1;const gw=(W-m.l-m.r)/labels.length,bw=gw*.8/series.length;let o=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+for(let i=0;i<=4;i++){const y=H-m.b-(H-m.b-m.t)*i/4;o+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${m.l-6}" y="${y+4}" text-anchor="end">${f(max*i/4,max>20?0:2)}</text>`}
+labels.forEach((lb,g)=>{series.forEach((s,i)=>{const h=(H-m.b-m.t)*s.vals[g]/max,x=m.l+g*gw+gw*.1+i*bw,y=H-m.b-h;o+=`<rect x="${x}" y="${y}" width="${bw-2}" height="${h}" fill="${s.color}" rx="2"><title>${s.name}: ${f(s.vals[g],2)} ${unit}</title></rect>`});
+o+=`<text x="${m.l+g*gw+gw/2}" y="${H-m.b+16}" text-anchor="middle">${lb}</text>`});
+$(el).innerHTML=o+`<text x="4" y="12">${unit}</text></svg>`}
+function lines(el,series,xl,yl){const W=600,H=260,m={l:52,b:34,t:12,r:10};const n=Math.max(...series.map(s=>s.y.length));const max=Math.max(...series.flatMap(s=>s.y))*1.05||1;const X=i=>m.l+(W-m.l-m.r)*i/(n-1||1),Y=v=>H-m.b-(H-m.b-m.t)*v/max;let o=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+for(let i=0;i<=4;i++){const v=max*i/4;o+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${f(v,max>20?0:1)}</text>`}
+const xs=series[0].x||series[0].y.map((_,i)=>i);[0,.25,.5,.75,1].forEach(p=>{const i=Math.round(p*(n-1));o+=`<text x="${X(i)}" y="${H-m.b+16}" text-anchor="middle">${f(xs[i],1)}</text>`});
+series.forEach(s=>{o+=`<polyline fill="none" stroke="${s.color}" stroke-width="2" ${s.dash?'stroke-dasharray="5 4"':''} points="${s.y.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`;if(s.dots)s.y.forEach((v,i)=>o+=`<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="${s.color}"><title>${s.name}: ${f(v,2)}</title></circle>`)});
+$(el).innerHTML=o+`<text x="${W/2}" y="${H-4}" text-anchor="middle">${xl}</text><text x="4" y="10">${yl}</text></svg>`}
+const lab=sch.map(s=>N[s].split(" (")[0].replace("Energy-only ablation","Energy-only"));
+const one=(k)=>[{name:"kg CO2",color:"",vals:D.comparison.map(r=>r[k]/1000)}];
+["barJob:job_emissions_g","barFleet:fleet_emissions_g"].forEach(p=>{const[id,k]=p.split(":");bars(id,[""],D.comparison.map(r=>({name:N[r.scheduler],color:C[r.scheduler],vals:[r[k]/1000]})),"kg CO2")});
+lines("cum",sch.map(s=>({name:N[s],color:C[s],y:D.cumulative[s]})),"Half-hour step","kg CO2");
+const nodes=[...new Set(Object.values(D.placement).flatMap(o=>Object.keys(o)))].sort();
+bars("place",nodes,sch.map(s=>({name:N[s],color:C[s],vals:nodes.map(n=>D.placement[s][n]||0)})),"kWh");
+const FM={gradient_boosting:["Gradient boosting model","var(--ca)",0],persistence:["Persistence (repeat last value)","var(--base)",1],seasonal_naive_24h:["Same time yesterday","var(--en)",1]};
+const hs=[...new Set(D.forecast.map(r=>r.horizon_hours))];
+lines("fc",Object.keys(FM).map(k=>({name:FM[k][0],color:FM[k][1],dash:FM[k][2],dots:1,x:hs,y:hs.map(h=>D.forecast.find(r=>r.horizon_hours===h&&r.method===k).mae)})),"Forecast horizon (hours)","MAE");
+$("leg4").innerHTML=Object.values(FM).map(v=>`<span><i style="background:${v[1]}"></i>${v[0]}</span>`).join("");
+const piv=h=>Object.fromEntries(D.forecast.filter(r=>r.horizon_hours===h).map(r=>[r.method,r.mae]));
+const wins=hs.filter(h=>{const p=piv(h);return p.gradient_boosting<Math.min(p.persistence,p.seasonal_naive_24h)}),loss=hs.filter(h=>!wins.includes(h));
+$("fcnote").textContent=`The model beats both simple baselines at ${wins.length?wins.join(", ")+" h":"no horizon"}`+(loss.length?`, and does not at ${loss.join(", ")} h.`:".");
+const cols=[["scheduler","Scheduler"],["job_energy_kwh","Job kWh"],["job_emissions_g","Job gCO2"],["fleet_emissions_g","Fleet gCO2"],["job_emissions_reduction_pct","Job reduction %"],["mean_wait_min","Mean wait (min)"],["p95_wait_min","p95 wait (min)"],["deadline_miss_rate","Deadline miss"],["migrations","Migrations"],["latency_violations","Latency violations"]];
+$("tbl").innerHTML="<tr>"+cols.map(c=>`<th>${c[1]}</th>`).join("")+"</tr>"+D.comparison.map(r=>"<tr>"+cols.map(c=>`<td>${c[0]==="scheduler"?N[r.scheduler]:f(r[c[0]],c[0]==="deadline_miss_rate"?3:1)}</td>`).join("")+"</tr>").join("");
+if(D.robustness.length){lines("rob",[{name:"Reduction %",color:"var(--ca)",dots:1,x:D.robustness.map((_,i)=>i+1),y:D.robustness.map(r=>r.job_emissions_reduction_pct)}],"Workload number","% reduction")}else $("robsec").style.display="none";
+$("key").innerHTML=[["Grid carbon intensity",D.meta.carbon_origin],["Workload",D.meta.workload_origin],["Future carbon intensity seen by the scheduler","Model prediction"],["Emissions accounting","Actual series in the data file (never predictions)"],["Site carbon scale and shift, node power, PUE, latency, migration overhead","Simulated assumptions from the config file"],["Migrations","Simulated bookkeeping only; nothing is physically migrated"]].map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join("");
+</script></body></html>
